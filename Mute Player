@@ -1,0 +1,96 @@
+
+import java.util.regex.Pattern;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class MutePlugin extends JavaPlugin implements Listener {
+
+@Override
+public void onEnable() {
+    Bukkit.getPluginManager().registerEvents(this, this);
+}
+
+@Override
+public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+    if (cmd.getName().equalsIgnoreCase("mute")) {
+        if (args.length != 2) {
+            sender.sendMessage(ChatColor.RED + "Usage: /mute <player> <duration>");
+            return true;
+        }
+        Player player = Bukkit.getPlayer(args[0]);
+        if (player == null) {
+            sender.sendMessage(ChatColor.RED + "Player not found: " + args[0]);
+            return true;
+        }
+        long seconds = parseDuration(args[1]);
+        if (seconds <= 0) {
+            sender.sendMessage(ChatColor.RED + "Invalid duration: " + args[1]);
+            return true;
+        }
+        mutePlayer(player, seconds);
+        sender.sendMessage(ChatColor.GREEN + "Muted player " + player.getName() + " for " + formatDuration(seconds));
+        return true;
+    }
+    return false;
+}
+
+@EventHandler
+public void onPlayerChat(AsyncPlayerChatEvent event) {
+    Player player = event.getPlayer();
+    if (player.hasMetadata("muted_until")) {
+        long mutedUntil = player.getMetadata("muted_until").get(0).asLong();
+        if (System.currentTimeMillis() < mutedUntil) {
+            event.setCancelled(true);
+            player.sendMessage("Aaryan said shut up");
+        } else {
+            player.removeMetadata("muted_until", this);
+        }
+    }
+}
+
+private void mutePlayer(Player player, long seconds) {
+    player.setMetadata("muted_until", new FixedMetadataValue(this, System.currentTimeMillis() + seconds * 1000));
+    player.sendTitle("", ChatColor.RED + "You have been muted for " + formatDuration(seconds), 0, (int) seconds * 20, 0);
+    player.sendMessage(ChatColor.RED + "You have been muted for " + formatDuration(seconds));
+}
+
+private long parseDuration(String duration) {
+    try {
+        return Long.parseLong(duration);
+    } catch (NumberFormatException e) {
+        Pattern pattern = Pattern.compile("(\\d+)\\s*(\\w+)");
+        java.util.regex.Matcher matcher = pattern.matcher(duration);
+        if (matcher.matches()) {
+            long num = Long.parseLong(matcher.group(1));
+            String unit = matcher.group(2).toLowerCase();
+            switch (unit) {
+                case "s":
+                case "sec":
+                case "secs":
+                case "second":
+                case "seconds":
+                    return num;
+                case "m":
+                case "min":
+                case "mins":
+                case "minute":
+                case "minutes":
+                    return num * 60;
+                case "h":
+                case "hr":
+                case "hrs":
+                case "hour":
+                case "hours":
+                    return num * 60 * 60;
+                case "d":
+                case "day":
+                case "days":
+                    return num * 60 * 60 * 
